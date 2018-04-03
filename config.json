@@ -1,0 +1,10 @@
+{
+    "files": {
+        "spaces": "/path/to/space/image.png",
+        "tokens": "/path/to/token/image.png",
+        "dict": "/path/to/dictionary/file.json"
+    },
+    "resolution": {
+        
+    }
+}
