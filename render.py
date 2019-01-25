@@ -71,13 +71,23 @@ class Ref:
     def __repr__(self):
         return str(self)
 
+    def _image(self, tokens, d, name):
+        if name not in d:
+            return None
+        if 'thumbnail' not in d[name]:
+            return None
+        x, y = d[name]['thumbnail']
+        spanx, spany = 1, 1
+        if 'span' in d[name]:
+            spanx, spany = d[name]['span']
+        return tokens.crop((x, y, x + 16 * spanx, y + 16 * spany))
+
     def image(self, tokens):
         """Given the image of tokens, produces a cropped variant which
         consists only of the given token.
 
         """
-        x, y = dictionary['tokens'][self.name]['thumbnail']
-        return tokens.crop((x, y, x + 16, y + 16))
+        return self._image(tokens, dictionary['items'], self.item) or self._image(tokens, dictionary['tokens'], self.name)
 
 with open("config.json") as main_file:
     config = json.load(main_file)
