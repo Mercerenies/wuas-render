@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from PIL import Image
+from PIL import Image, ImageDraw
 from sys import argv, stdout
 import json
 import numpy as np
@@ -133,13 +133,35 @@ def space_layer(space):
 WIDTH = 32
 HEIGHT = 32
 
+def highlight(image, args):
+    draw = ImageDraw.Draw(image)
+    rc, num = args
+    num = int(num)
+    if rc == 'ROW':
+        x0, y0 = 0, HEIGHT * num
+        x1, y1 = image.size[0], HEIGHT * (num + 1)
+    elif rc == 'COLUMN':
+        x0, y0 = WIDTH * num, 0
+        x1, y1 = WIDTH * (num + 1), image.size[1]
+    draw.line([(x0, y0), (x0, y1), (x1, y1), (x1, y0), (x0, y0)],
+              fill='red',
+              width=4)
+
+DIRECTIVES = {
+    "HIGHLIGHT": highlight
+}
+
 def load_table(fname):
     """Given a filename, loads the file as a table file containing the
-    board spaces and references. A 2-tuple is returned, containing the
-    numpy array representing the board and a dictionary of Ref
-    objects, with the abbreviations as the keys. Spaces whose
-    identifier contains a "*" will have the asterisk stripped, as the
-    asterisk is primarily intended for the GM's notes.
+    board spaces and references. A 3-tuple is returned, containing
+
+    1. The numpy array representing the board.
+    2. A dictionary of Ref objects, with the abbreviations as the keys.
+    3. A list of directives.
+
+    Spaces whose identifier contains a "*" will have the asterisk
+    stripped, as the asterisk is primarily intended for the GM's
+    notes.
 
     """
 
@@ -178,10 +200,20 @@ def load_table(fname):
             ref, name, item, x, y = curr.split()
             refs[ref] = Ref(name, item, (int(x), int(y)))
 
-        return (np.array(table), refs)
+        # Directives
+        dirs = []
+        while True:
+            curr = infile.readline()
+            if curr.strip() == "":
+                break
+            data = curr.split()
+            fn = DIRECTIVES[data[0]]
+            dirs.append(lambda image: fn(image, data[1:]))
+
+        return (np.array(table), refs, dirs)
 
 
-def render_image(table, refs):
+def render_image(table, refs, dirs):
     """Given the output of load_table, renders the various layers as a
     Pillow image and returns the image object.
 
@@ -217,6 +249,10 @@ def render_image(table, refs):
                     if img is not None:
                         result.paste(img, (x * WIDTH + dx, y * HEIGHT + dy), img)
 
+        # Directives
+        for d in dirs:
+            d(result)
+
         return result
 
 def render_json(table, refs):
@@ -250,9 +286,9 @@ def render_json(table, refs):
 if __name__ == "__main__":
     setting = argv[1]
     infile = argv[2]
-    table, refs = load_table(infile)
+    table, refs, dirs = load_table(infile)
     if setting == '-i':
-        with render_image(table, refs) as img:
+        with render_image(table, refs, dirs) as img:
             if len(argv) > 3:
                 img.save(argv[3])
             else:
